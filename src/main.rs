@@ -1,13 +1,10 @@
 
-#![feature(box_syntax)]
-
 extern crate nalgebra as na;
 extern crate plotters;
 
 use std::io::Write as IoWrite;
 
 use plotters::prelude::*;
-
 
 mod integration;
 mod base_function;
@@ -31,22 +28,22 @@ fn x_iter() -> impl Iterator<Item = f64> {
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     type SimpleComputedFunction = ComputedFunction::<SimpleBaseFunction>;
 
-    let func = SimpleComputedFunction::find_solution(&MaterialVibration, 30);
+    let n = std::env::args()
+        .nth(1)
+        .and_then(|n| n.parse::<usize>().ok())
+        .unwrap_or(20);
 
-    let points: Vec<(f32, f32)> = x_iter()
-        .map(|x| {
-            let y = func.evalute(x);
+    let file = std::env::args()
+        .nth(2)
+        .unwrap_or("output.png".to_owned());
 
-            (x as f32, y as f32)
-        })
+    let func = SimpleComputedFunction::find_solution(&MaterialVibration, n);
+
+    let points: Vec<(f64, f64)> = x_iter()
+        .map(|x| (x, func.evalute(x)))
         .collect();
 
-    let mut file = std::fs::File::create("points.csv")?;
-    for (x, y) in &points {
-        writeln!(&mut file, "{}, {}", x, y)?;
-    }
-
-    let backend = BitMapBackend::new("1.png", (1024, 1024));
+    let backend = BitMapBackend::new(&file, (1024, 1024));
     let root = backend.into_drawing_area();
     root.fill(&WHITE)?;
 
@@ -54,42 +51,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         .margin(25)
         .x_label_area_size(30)
         .y_label_area_size(30)
-        .build_cartesian_2d(0f32..2f32, -2.0f32..2f32)?;
+        .build_cartesian_2d(0f64..2f64, -2.0f64..2f64)?;
 
-    for base in &SimpleComputedFunction::get_bases(&MaterialVibration, 30) {
-        use base_function::BaseFunction;
+    if cfg!(feature = "debug-draw") {
+        for base in &SimpleComputedFunction::get_bases(&MaterialVibration, n) {
+            use base_function::BaseFunction;
 
-        let points = x_iter()
+            let points = x_iter()
+                .map(|x| (x, base.regular(x)));
+
+            chart
+                .draw_series(LineSeries::new(
+                        points, 
+                        &BLUE.mix(0.2),
+                ))?;
+        }
+        let points2 = x_iter()
             .map(|x| {
-                (x as f32, base.regular(x) as f32)
+                let a: f64 = (2f64.cos() + 2f64 * 2f64.sin())/(2f64.cos() - 2f64.sin());
+                let y = 0.5f64 * (x * x.cos() + a * x.sin());
+                (x, y)
             });
 
         chart
             .draw_series(LineSeries::new(
-                    points, 
-                    &BLUE.mix(0.2),
+                    points2, 
+                    &GREEN,
             ))?;
     }
 
-    let points2 = x_iter()
-        .map(|x| {
-            let y = 0.5f64 * (x * x.cos() + ((2f64.cos() + 2f64 * 2f64.sin())*x.sin())/(2f64.cos() - 2f64.sin()));
-            (x as f32, y as f32)
-        });
-
-    chart
-        .draw_series(LineSeries::new(
-                points2, 
-                &GREEN,
-        ))?;
-
-    chart.configure_mesh().draw()?;
 
     chart
         .draw_series(LineSeries::new(
                 points, 
                 &RED,
         ))?;
+
+    chart.configure_mesh().draw()?;
 
 
     Ok(())

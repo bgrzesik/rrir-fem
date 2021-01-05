@@ -3,6 +3,8 @@ use crate::base_function::BaseFunction;
 use crate::integration::integrate;
 
 
+const EPSILON: f64 = 1e-12f64;
+
 pub trait Problem {
     fn range(&self) -> std::ops::Range<f64>;
 
@@ -19,6 +21,18 @@ pub trait Problem {
 pub struct ComputedFunction<BFn: BaseFunction> {
     bases: Vec<BFn>,
     scalars: na::DVector<f64>,
+}
+
+fn intersection(ranges: &[std::ops::Range<f64>]) -> std::ops::Range<f64> {
+    let mut low = f64::MIN;
+    let mut high = f64::MAX;
+
+    for range in ranges {
+        low = low.max(range.start);
+        high = high.min(range.end);
+    }
+
+    return low..high.max(low);
 }
 
 impl <BFn: BaseFunction> ComputedFunction<BFn> {
@@ -55,10 +69,16 @@ impl <BFn: BaseFunction> ComputedFunction<BFn> {
             let v = &bases[row];
 
             let right = &mut right[row];
-
             
             let func = |x| problem.right_integral(x, v);
-            let integral = integrate(func, problem.range());
+            let range = intersection(&[problem.range(), v.non_zero_range()]);
+
+            let integral = if (range.end - range.start) > EPSILON {
+                integrate(func, range) 
+                //quad.integrate(range.start, range.end, func)
+            } else { 
+                0f64 
+            };
 
             *right = problem.free_right_terms(v) + integral;
 
@@ -67,20 +87,30 @@ impl <BFn: BaseFunction> ComputedFunction<BFn> {
                 let left = &mut left[(row, col)];
 
                 let func = |x| problem.left_integral(x, u, v);
-                let integral = integrate(func, problem.range());
+                
+                let range = intersection(&[problem.range(), 
+                                           v.non_zero_range(), 
+                                           u.non_zero_range()]);
 
-                *left = problem.free_left_terms(u, v) +  integral;
+                let integral = if (range.end - range.start) > EPSILON {
+                    integrate(func, range) 
+                    //quad.integrate(range.start, range.end, func)
+                } else { 
+                    0f64 
+                };
+
+                *left = problem.free_left_terms(u, v) + integral;
             }
         }
-        
-        println!("{:?}", right);
-        println!("{:?}", left);
-        
+
+        // println!("B = {:?}", right);
+        // println!("L = {:?}", left);
+
         let solution = left.lu().solve(&right);
-
-        println!("{:?}", solution);
-
         let solution = solution.unwrap();
+
+
+        // println!("solution = {:?}", solution);
 
         Self { bases, scalars: solution }
     }

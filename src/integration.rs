@@ -24,7 +24,6 @@ mod tests {
     #[test]
     fn test_intergate() {
         let val = integrate(|x| x, 0f64..1f64);
-
         assert!((val - 0.5f64).abs() < 1e-12f64);
     }
 
