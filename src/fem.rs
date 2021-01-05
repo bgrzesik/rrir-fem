@@ -62,46 +62,39 @@ impl <BFn: BaseFunction> ComputedFunction<BFn> {
             P: Problem
     {
         let bases = Self::get_bases(problem, n);
-        let mut left = na::DMatrix::<f64>::zeros(bases.len(), bases.len());
-        let mut right = na::DVector::<f64>::zeros(bases.len());
 
-        for row in 0..bases.len() {
+        let right = na::DVector::<f64>::from_fn(bases.len(), |row, _| {
             let v = &bases[row];
-
-            let right = &mut right[row];
-            
             let func = |x| problem.right_integral(x, v);
             let range = intersection(&[problem.range(), v.non_zero_range()]);
 
             let integral = if (range.end - range.start) > EPSILON {
                 integrate(func, range) 
-                //quad.integrate(range.start, range.end, func)
             } else { 
                 0f64 
             };
 
-            *right = problem.free_right_terms(v) + integral;
+            problem.free_right_terms(v) + integral
+        });
 
-            for col in 0..bases.len() {
-                let u = &bases[col];
-                let left = &mut left[(row, col)];
+        let left = na::DMatrix::<f64>::from_fn(bases.len(), bases.len(), |row, col| {
+            let v = &bases[row];
+            let u = &bases[col];
 
-                let func = |x| problem.left_integral(x, u, v);
-                
-                let range = intersection(&[problem.range(), 
-                                           v.non_zero_range(), 
-                                           u.non_zero_range()]);
+            let func = |x| problem.left_integral(x, u, v);
+            
+            let range = intersection(&[problem.range(), 
+                                       v.non_zero_range(), 
+                                       u.non_zero_range()]);
 
-                let integral = if (range.end - range.start) > EPSILON {
-                    integrate(func, range) 
-                    //quad.integrate(range.start, range.end, func)
-                } else { 
-                    0f64 
-                };
+            let integral = if (range.end - range.start) > EPSILON {
+                integrate(func, range) 
+            } else { 
+                0f64 
+            };
 
-                *left = problem.free_left_terms(u, v) + integral;
-            }
-        }
+            problem.free_left_terms(u, v) + integral
+        });
 
         // println!("B = {:?}", right);
         // println!("L = {:?}", left);

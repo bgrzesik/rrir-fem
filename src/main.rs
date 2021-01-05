@@ -2,8 +2,6 @@
 extern crate nalgebra as na;
 extern crate plotters;
 
-use std::io::Write as IoWrite;
-
 use plotters::prelude::*;
 
 mod integration;
