@@ -1,0 +1,9 @@
+[package]
+name = "rrir"
+version = "0.1.0"
+authors = ["Bartłomiej Grzesik <bartlomiej.grzesik0@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+plotters = "^0.3.0"
+nalgebra = "0.24.0"
